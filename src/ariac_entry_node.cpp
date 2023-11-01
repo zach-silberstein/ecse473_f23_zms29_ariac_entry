@@ -3,6 +3,7 @@
 
 #include <sstream>
 #include "std_srvs/Trigger.h"
+#include "std_srvs/SetBool.h"
 
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
@@ -45,14 +46,30 @@ int main(int argc, char **argv)
    * than we can send them, the number here specifies how many messages to
    * buffer up before throwing some away.
    */
-  ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
+  //ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
 
   ros::Rate loop_rate(10);
 
   // Service to begin compition
   std_srvs::Trigger begin_comp;
   // Create the service client.
-  ros::ServiceClient begin_client = n.serviceClient<std_srvs::Trigger>("<service_name>");
+  ros::ServiceClient begin_client = n.serviceClient<std_srvs::Trigger>("/ariac/start_competition");
+  
+
+  
+  if (begin_client.call(begin_comp)){
+    if (begin_comp.response.success){
+        ROS_INFO("Competition service called successfully: %s", \
+            begin_comp.response.message.c_str());
+    }
+    else {
+        ROS_WARN("Competition service returned failure: %s", begin_comp.response.message.c_str());
+    }
+  }
+  else {
+    ROS_ERROR("Competition service call failed! Goodness Gracious!!");
+  }
+
 
   /**
    * A count of how many messages we have sent. This is used to create
@@ -61,16 +78,17 @@ int main(int argc, char **argv)
   int count = 0;
   while (ros::ok())
   {
+    
     /**
      * This is a message object. You stuff it with data, and then publish it.
      */
-    std_msgs::String msg;
+    //std_msgs::String msg;
 
-    std::stringstream ss;
-    ss << "hello world " << count;
-    msg.data = ss.str();
+    //std::stringstream ss;
+    //ss << "hello world " << count;
+   // msg.data = ss.str();
 
-    ROS_INFO("%s", msg.data.c_str());
+    //ROS_INFO("%s", msg.data.c_str());
 
     /**
      * The publish() function is how you send messages. The parameter
@@ -78,7 +96,7 @@ int main(int argc, char **argv)
      * given as a template parameter to the advertise<>() call, as was done
      * in the constructor above.
      */
-    chatter_pub.publish(msg);
+    //chatter_pub.publish(msg);
 
     ros::spinOnce();
 
