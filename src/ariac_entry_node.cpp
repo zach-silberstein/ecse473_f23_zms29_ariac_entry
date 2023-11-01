@@ -5,16 +5,24 @@
 #include "std_srvs/Trigger.h"
 #include "std_srvs/SetBool.h"
 #include "osrf_gear/Order.h"
+#include "osrf_gear/GetMaterialLocations.h"
+
 
 
 // Declaring a vector of data type.
-std::vector<osrf_gear::Order::ConstPtr> orders_vector;
+std::vector<osrf_gear::Order> orders_vector;
 
 // Callback function
 void ordersCallback(const osrf_gear::Order::ConstPtr& msg)
 {
-  orders_vector.push_back(msg);
+  osrf_gear::Order temp;
+  temp.order_id = msg->order_id;
+  temp.shipments = msg->shipments;
+  orders_vector.push_back(temp);
+
+
 }
+
 
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
@@ -89,6 +97,12 @@ int main(int argc, char **argv)
   // Clearing/initializing vector
   orders_vector.clear();
 
+
+  // Service to begin get material
+  osrf_gear::GetMaterialLocations materialLocationsType;
+  // Create the service client.
+  ros::ServiceClient materialLocations = n.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
+
   /**
    * A count of how many messages we have sent. This is used to create
    * a unique string for each message.
@@ -96,6 +110,21 @@ int main(int argc, char **argv)
   int count = 0;
   while (ros::ok())
   {
+
+
+    //check if vector is not empty
+    if (not orders_vector.empty() and begin_comp.response.success){
+        ROS_INFO("First order type: %s", \
+            orders_vector[0].shipments[0].products[0].type.c_str());
+        // get element
+        materialLocationsType.request.material_type = orders_vector[0].shipments[0].products[0].type.c_str();
+        
+        if (materialLocations.call(materialLocationsType)) {
+            ROS_INFO("First storage unit: %s", \
+                materialLocationsType.response.storage_units[0].unit_id.c_str());
+        }
+    }
+    
     /**
      * This is a message object. You stuff it with data, and then publish it.
      */
