@@ -4,6 +4,17 @@
 #include <sstream>
 #include "std_srvs/Trigger.h"
 #include "std_srvs/SetBool.h"
+#include "osrf_gear/Order.h"
+
+
+// Declaring a vector of data type.
+std::vector<osrf_gear::Order::ConstPtr> orders_vector;
+
+// Callback function
+void ordersCallback(const osrf_gear::Order::ConstPtr& msg)
+{
+  orders_vector.push_back(msg);
+}
 
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
@@ -56,20 +67,27 @@ int main(int argc, char **argv)
   ros::ServiceClient begin_client = n.serviceClient<std_srvs::Trigger>("/ariac/start_competition");
   
 
-  
+  // Try to start competition
   if (begin_client.call(begin_comp)){
+    // If service call returns, check the output to make sure it actually started
     if (begin_comp.response.success){
         ROS_INFO("Competition service called successfully: %s", \
             begin_comp.response.message.c_str());
     }
     else {
-        ROS_WARN("Competition service returned failure: %s", begin_comp.response.message.c_str());
+        ROS_WARN("Competition service returned failure: %s", \
+            begin_comp.response.message.c_str());
     }
   }
   else {
     ROS_ERROR("Competition service call failed! Goodness Gracious!!");
   }
 
+  // Subscribe to orders topic
+  ros::Subscriber sub = n.subscribe("/ariac/orders", 1000, ordersCallback);
+
+  // Clearing/initializing vector
+  orders_vector.clear();
 
   /**
    * A count of how many messages we have sent. This is used to create
@@ -78,7 +96,6 @@ int main(int argc, char **argv)
   int count = 0;
   while (ros::ok())
   {
-    
     /**
      * This is a message object. You stuff it with data, and then publish it.
      */
