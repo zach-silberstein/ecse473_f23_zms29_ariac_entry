@@ -1,0 +1,8 @@
+<launch>
+
+    <include file = "$(find ecse_373_ariac)/launch/ecse_373_ariac.launch" />
+    <node name = "ariac_entry" pkg = "ariac_entry" type = "ariac_entry"/>
+
+</launch>
+
+<!--/home/zach/ecse_373_ariac_ws/src/ecse_373_ariac/ecse_373_ariac/launch-->
