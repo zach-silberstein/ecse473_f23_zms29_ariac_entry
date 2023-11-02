@@ -200,15 +200,16 @@ int main(int argc, char **argv)
 
     //check if vector is not empty
     if (not orders_vector.empty() and begin_comp.response.success){
-      type = orders_vector[0].shipments[0].products[0].type.c_str();
-        ROS_INFO("First order type: %s", type);
+      type = orders_vector[0].shipments[0].products[0].type;
+        ROS_INFO("First order type: %s", type.c_str());
         // get element
         materialLocationsType.request.material_type = type;
         
+        // Get material location
         if (materialLocations.call(materialLocationsType)) {
-          unit = materialLocationsType.response.storage_units[0].unit_id.c_str();
-            ROS_INFO("First storage unit: %s", unit);
-
+          unit = materialLocationsType.response.storage_units[0].unit_id;
+            ROS_INFO("First storage unit: %s", unit.c_str());
+          // Check correct camera
           if (unit.compare("agv1") == 0) {
             models = agv1.models;
           }
@@ -240,10 +241,14 @@ int main(int argc, char **argv)
             models = sen2.models;
           }
 
+          // Get pose of part in frame of correct camera
           for (osrf_gear::Model model : models){
             if (model.type == type){
               pose = model.pose;
-              ROS_INFO("Pose of object in camera's reference frame: %f", pose.orientation.w);
+              ROS_INFO("Pose of object in camera's reference frame (w,x,y,z),(X,Y,Z): (%f,%f,%f,%f),(%f,%f,%f)",\
+               pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z, \
+               pose.position.x, pose.position.y, pose.position.z);
+              break;
             }
           }
 
