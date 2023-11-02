@@ -8,7 +8,10 @@
 #include "osrf_gear/GetMaterialLocations.h"
 #include "osrf_gear/LogicalCameraImage.h"
 
-
+// Transformation header files
+#include "tf2_ros/transform_listener.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "geometry_msgs/TransformStamped.h"
 
 // Declaring a vector of data type.
 std::vector<osrf_gear::Order> orders_vector;
@@ -116,6 +119,10 @@ int main(int argc, char **argv)
    * NodeHandle destructed will close down the node.
    */
   ros::NodeHandle n;
+  // Declare the transformation buffer to maintain a list of transformations
+  tf2_ros::Buffer tfBuffer;
+  // Instantiate a listener that listens to the tf and tf_static topics and to update the buffer.
+  tf2_ros::TransformListener tfListener(tfBuffer);
 
   /**
    * The advertise() function is how you tell ROS that you want to
@@ -241,7 +248,7 @@ int main(int argc, char **argv)
             models = sen2.models;
           }
 
-          // Get pose of part in frame of correct camera
+          // Get pose of part in frame of correct camera`
           for (osrf_gear::Model model : models){
             if (model.type == type){
               pose = model.pose;
@@ -251,6 +258,32 @@ int main(int argc, char **argv)
               break;
             }
           }
+
+          // Retrieve the transformation
+          geometry_msgs::TransformStamped tfStamped;
+          try {
+            tfStamped = tfBuffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame",
+              ros::Time(0.0), ros::Duration(1.0));
+            ROS_DEBUG("Transform to [%s] from [%s]", tfStamped.header.frame_id.c_str(),
+              tfStamped.child_frame_id.c_str());
+          } catch (tf2::TransformException &ex) {
+            ROS_ERROR("%s", ex.what());
+          }
+          // tf2_ross::Buffer.lookupTransform("to_frame", "from_frame", "how_recent", "how_long_to_wait_for_transform");
+
+          // Create variables
+          geometry_msgs::PoseStamped part_pose, goal_pose;
+          // Copy pose from the logical camera.
+          part_pose.pose = pose;
+          tf2::doTransform(part_pose, goal_pose, tfStamped);
+
+          // Add height to the goal pose.
+          goal_pose.pose.position.z += 0.10; // 10 cm above the part
+          // Tell the end effector to rotate 90 degrees around the y-axis (in quaternions...).
+          goal_pose.pose.orientation.w = 0.707;
+          goal_pose.pose.orientation.x = 0.0;
+          goal_pose.pose.orientation.y = 0.707;
+          goal_pose.pose.orientation.z = 0.0;
 
         }
     }
