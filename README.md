@@ -10,12 +10,12 @@ Additional information about the competition and useful documentation can be fou
 
 
 #### Usage: 
-To run the project, first start the simulator by running 
-    roslaunch ecse_373_ariac ecse_373_ariac.launch
-or to run it in the background (perfered) use
-    roslaunch ecse_373_ariac ecse_373_ariac.launch &
-Once the simulator is open, be sure to click the play button at the bottom and then wait a few seconds (typically until the simtime reaches 5 seconds) before continuing.
+To run the project, first start the simulator by running  
+    roslaunch ecse_373_ariac ecse_373_ariac.launch  
+or to run it in the background (perfered) use  
+    roslaunch ecse_373_ariac ecse_373_ariac.launch &  
+Once the simulator is open, be sure to click the play button at the bottom and then wait a few seconds (typically until the simtime reaches 5 seconds) before continuing.  
 To launch the node of this project run  
-    rosrun ariac_entry ariac_entry_node
-When it is desired to end the simulation run
-    killall gzserver gzclient roslaunch
+    rosrun ariac_entry ariac_entry_node  
+When it is desired to end the simulation run  
+    killall gzserver gzclient roslaunch  
