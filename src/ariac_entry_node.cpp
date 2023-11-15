@@ -19,81 +19,68 @@ std::vector<osrf_gear::Order> orders_vector;
 // Callback function
 void ordersCallback(const osrf_gear::Order::ConstPtr& msg)
 {
-  osrf_gear::Order temp;
-  temp.order_id = msg->order_id;
-  temp.shipments = msg->shipments;
-  orders_vector.push_back(temp);
+  orders_vector.push_back(*msg);
 }
 
 
 osrf_gear::LogicalCameraImage agv1;
 void cameraCallback_agv1(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
 {
-  agv1.models = msg->models;
-  agv1.pose = msg->pose;
+  agv1 = *msg;
 }
 
 osrf_gear::LogicalCameraImage agv2;
 void cameraCallback_agv2(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
 {
-  agv2.models = msg->models;
-  agv2.pose = msg->pose;
+  agv2 = *msg;
 }
 
 osrf_gear::LogicalCameraImage bin1;
 void cameraCallback_bin1(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
 {
-  bin1.models = msg->models;
-  bin1.pose = msg->pose;
+  bin1 = *msg;
 }
 
 osrf_gear::LogicalCameraImage bin2;
 void cameraCallback_bin2(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
 {
-  bin2.models = msg->models;
-  bin2.pose = msg->pose;
+  bin2 = *msg;
 }
 
 osrf_gear::LogicalCameraImage bin3;
 void cameraCallback_bin3(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
 {
-  bin3.models = msg->models;
-  bin3.pose = msg->pose;
+  bin3 = *msg;
 }
 
 osrf_gear::LogicalCameraImage bin4;
 void cameraCallback_bin4(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
 {
-  bin4.models = msg->models;
-  bin4.pose = msg->pose;
+  bin4 = *msg;
 }
 
 osrf_gear::LogicalCameraImage bin5;
 void cameraCallback_bin5(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
 {
-  bin5.models = msg->models;
-  bin5.pose = msg->pose;
+  bin5 = *msg;
 }
 
 osrf_gear::LogicalCameraImage bin6;
 void cameraCallback_bin6(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
 {
-  bin6.models = msg->models;
-  bin6.pose = msg->pose;
+  bin6 = *msg;
 }
 
 osrf_gear::LogicalCameraImage sen1;
 void cameraCallback_sen1(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
 {
-  sen1.models = msg->models;
-  sen1.pose = msg->pose;
+  sen1 = *msg;
 }
 
 osrf_gear::LogicalCameraImage sen2;
 void cameraCallback_sen2(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
 {
-  sen2.models = msg->models;
-  sen2.pose = msg->pose;
+  sen2 = *msg;
 }
 
 /**
@@ -149,6 +136,18 @@ int main(int argc, char **argv)
   std_srvs::Trigger begin_comp;
   // Create the service client.
   ros::ServiceClient begin_client = n.serviceClient<std_srvs::Trigger>("/ariac/start_competition");
+
+  // Subscribe to orders cameras
+  ros::Subscriber sub1 = n.subscribe("/ariac/logical_camera_agv1", 1000, cameraCallback_agv1);
+  ros::Subscriber sub2 = n.subscribe("/ariac/logical_camera_agv2", 1000, cameraCallback_agv2);
+  ros::Subscriber sub3 = n.subscribe("/ariac/logical_camera_bin1", 1000, cameraCallback_bin1);
+  ros::Subscriber sub4 = n.subscribe("/ariac/logical_camera_bin2", 1000, cameraCallback_bin2);
+  ros::Subscriber sub5 = n.subscribe("/ariac/logical_camera_bin3", 1000, cameraCallback_bin3);
+  ros::Subscriber sub6 = n.subscribe("/ariac/logical_camera_bin4", 1000, cameraCallback_bin4);
+  ros::Subscriber sub7 = n.subscribe("/ariac/logical_camera_bin5", 1000, cameraCallback_bin5);
+  ros::Subscriber sub8 = n.subscribe("/ariac/logical_camera_bin6", 1000, cameraCallback_bin6);
+  ros::Subscriber sub9 = n.subscribe("/ariac/quality_control_sensor_1", 1000, cameraCallback_sen1);
+  ros::Subscriber sub10 = n.subscribe("/ariac/quality_control_sensor_2", 1000, cameraCallback_sen2);
   
 
   // Try to start competition
@@ -173,145 +172,104 @@ int main(int argc, char **argv)
   // Clearing/initializing vector
   orders_vector.clear();
 
+  // Wait for first order to come in
+  while (orders_vector.empty()){
+    ros::spinOnce();
+    loop_rate.sleep();
+  }
+
+  // Get part of the first order
+  std::string type;
+  type = orders_vector[0].shipments[0].products[0].type;
+  ROS_INFO("First order type: %s", type.c_str());
+
 
   // Service to begin get material
   osrf_gear::GetMaterialLocations materialLocationsType;
   // Create the service client.
   ros::ServiceClient materialLocations = n.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
 
-  // Subscribe to orders cameras
-  ros::Subscriber sub1 = n.subscribe("/ariac/logical_camera_agv1", 1000, cameraCallback_agv1);
-  ros::Subscriber sub2 = n.subscribe("/ariac/logical_camera_agv2", 1000, cameraCallback_agv2);
-  ros::Subscriber sub3 = n.subscribe("/ariac/logical_camera_bin1", 1000, cameraCallback_bin1);
-  ros::Subscriber sub4 = n.subscribe("/ariac/logical_camera_bin2", 1000, cameraCallback_bin2);
-  ros::Subscriber sub5 = n.subscribe("/ariac/logical_camera_bin3", 1000, cameraCallback_bin3);
-  ros::Subscriber sub6 = n.subscribe("/ariac/logical_camera_bin4", 1000, cameraCallback_bin4);
-  ros::Subscriber sub7 = n.subscribe("/ariac/logical_camera_bin5", 1000, cameraCallback_bin5);
-  ros::Subscriber sub8 = n.subscribe("/ariac/logical_camera_bin6", 1000, cameraCallback_bin6);
-  ros::Subscriber sub9 = n.subscribe("/ariac/quality_control_sensor_1", 1000, cameraCallback_sen1);
-  ros::Subscriber sub10 = n.subscribe("/ariac/quality_control_sensor_2", 1000, cameraCallback_sen2);
-  
 
-  /**
-   * A count of how many messages we have sent. This is used to create
-   * a unique string for each message.
-   */
-  int count = 0;
-  std::string type;
+  // Get the location of the first part
+  materialLocationsType.request.material_type = type;
   std::string unit;
-  std::vector<osrf_gear::Model> models;
-  geometry_msgs::Pose pose;
-  while (ros::ok())
-  {
-
-
-    //check if vector is not empty
-    if (not orders_vector.empty() and begin_comp.response.success){
-      type = orders_vector[0].shipments[0].products[0].type;
-        ROS_INFO("First order type: %s", type.c_str());
-        // get element
-        materialLocationsType.request.material_type = type;
-        
-        // Get material location
-        if (materialLocations.call(materialLocationsType)) {
-          unit = materialLocationsType.response.storage_units[0].unit_id;
-            ROS_INFO("First storage unit: %s", unit.c_str());
-          // Check correct camera
-          if (unit.compare("agv1") == 0) {
-            models = agv1.models;
-          }
-          else if (unit.compare("agv2") == 0) {
-            models = agv2.models;
-          }
-          else if (unit.compare("bin1") == 0) {
-            models = bin1.models;
-          }
-          else if (unit.compare("bin2") == 0) {
-            models = bin2.models;
-          }
-          else if (unit.compare("bin3") == 0) {
-            models = bin3.models;
-          }
-          else if (unit.compare("bin4") == 0) {
-            models = bin4.models;
-          }
-          else if (unit.compare("bin5") == 0) {
-            models = bin5.models;
-          }
-          else if (unit.compare("bin6") == 0) {
-            models = bin6.models;
-          }
-          else if (unit.compare("sen1") == 0) {
-            models = sen1.models;
-          }
-          else if (unit.compare("sen2") == 0) {
-            models = sen2.models;
-          }
-
-          // Get pose of part in frame of correct camera`
-          for (osrf_gear::Model model : models){
-            if (model.type == type){
-              pose = model.pose;
-              ROS_INFO("Pose of object in camera's reference frame (w,x,y,z),(X,Y,Z): (%f,%f,%f,%f),(%f,%f,%f)",\
-               pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z, \
-               pose.position.x, pose.position.y, pose.position.z);
-              break;
-            }
-          }
-
-          // Retrieve the transformation
-          geometry_msgs::TransformStamped tfStamped;
-          try {
-            tfStamped = tfBuffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame",
-              ros::Time(0.0), ros::Duration(1.0));
-            ROS_DEBUG("Transform to [%s] from [%s]", tfStamped.header.frame_id.c_str(),
-              tfStamped.child_frame_id.c_str());
-          } catch (tf2::TransformException &ex) {
-            ROS_ERROR("%s", ex.what());
-          }
-          // tf2_ross::Buffer.lookupTransform("to_frame", "from_frame", "how_recent", "how_long_to_wait_for_transform");
-
-          // Create variables
-          geometry_msgs::PoseStamped part_pose, goal_pose;
-          // Copy pose from the logical camera.
-          part_pose.pose = pose;
-          tf2::doTransform(part_pose, goal_pose, tfStamped);
-
-          // Add height to the goal pose.
-          goal_pose.pose.position.z += 0.10; // 10 cm above the part
-          // Tell the end effector to rotate 90 degrees around the y-axis (in quaternions...).
-          goal_pose.pose.orientation.w = 0.707;
-          goal_pose.pose.orientation.x = 0.0;
-          goal_pose.pose.orientation.y = 0.707;
-          goal_pose.pose.orientation.z = 0.0;
-
-        }
-    }
-    
-    /**
-     * This is a message object. You stuff it with data, and then publish it.
-     */
-    //std_msgs::String msg;
-
-    //std::stringstream ss;
-    //ss << "hello world " << count;
-   // msg.data = ss.str();
-
-    //ROS_INFO("%s", msg.data.c_str());
-
-    /**
-     * The publish() function is how you send messages. The parameter
-     * is the message object. The type of this object must agree with the type
-     * given as a template parameter to the advertise<>() call, as was done
-     * in the constructor above.
-     */
-    //chatter_pub.publish(msg);
-
-    ros::spinOnce();
-
-    loop_rate.sleep();
-    ++count;
+  if (materialLocations.call(materialLocationsType)) {
+    unit = materialLocationsType.response.storage_units[0].unit_id;
+    ROS_INFO("First storage unit: %s", unit.c_str());
   }
+
+
+  // Getting pose of part
+  // Check correct camera
+  std::vector<osrf_gear::Model> models;
+  if (unit.compare("agv1") == 0) {
+    models = agv1.models;
+  }
+  else if (unit.compare("agv2") == 0) {
+    models = agv2.models;
+  }
+  else if (unit.compare("bin1") == 0) {
+    models = bin1.models;
+  }
+  else if (unit.compare("bin2") == 0) {
+    models = bin2.models;
+  }
+  else if (unit.compare("bin3") == 0) {
+    models = bin3.models;
+  }
+   else if (unit.compare("bin4") == 0) {
+    models = bin4.models;
+  }
+  else if (unit.compare("bin5") == 0) {
+    models = bin5.models;
+  }
+  else if (unit.compare("bin6") == 0) {
+    models = bin6.models;
+  }
+  else if (unit.compare("sen1") == 0) {
+    models = sen1.models;
+  }
+  else if (unit.compare("sen2") == 0) {
+    models = sen2.models;
+  }
+  // Get pose of part in frame of correct camera
+  geometry_msgs::Pose pose;
+  for (osrf_gear::Model model : models){
+    if (model.type == type){
+      pose = model.pose;
+      ROS_INFO("Pose of object in camera's reference frame (w,x,y,z),(X,Y,Z): (%f,%f,%f,%f),(%f,%f,%f)",\
+      pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z, \
+        pose.position.x, pose.position.y, pose.position.z);
+      break;
+    }
+  }
+
+
+  //Retrieve the transformation
+  geometry_msgs::TransformStamped tfStamped;
+  try {
+    tfStamped = tfBuffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame",
+    ros::Time(0.0), ros::Duration(1.0));
+    ROS_DEBUG("Transform to [%s] from [%s]", tfStamped.header.frame_id.c_str(),
+    tfStamped.child_frame_id.c_str());
+  } catch (tf2::TransformException &ex) {
+    ROS_ERROR("%s", ex.what());
+  }
+  //tf2_ross::Buffer.lookupTransform("to_frame", "from_frame", "how_recent", "how_long_to_wait_for_transform");
+
+  // Create variables
+  geometry_msgs::PoseStamped part_pose, goal_pose;
+  // Copy pose from the logical camera.
+  part_pose.pose = pose;
+  tf2::doTransform(part_pose, goal_pose, tfStamped);
+
+  // Add height to the goal pose.
+  goal_pose.pose.position.z += 0.10; // 10 cm above the part
+  // Tell the end effector to rotate 90 degrees around the y-axis (in quaternions...).
+  goal_pose.pose.orientation.w = 0.707;
+  goal_pose.pose.orientation.x = 0.0;
+  goal_pose.pose.orientation.y = 0.707;
+  goal_pose.pose.orientation.z = 0.0;
 
 
   return 0;
