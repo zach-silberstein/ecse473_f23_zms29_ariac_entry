@@ -248,7 +248,7 @@ int main(int argc, char **argv)
   //Retrieve the transformation
   geometry_msgs::TransformStamped tfStamped;
   try {
-    tfStamped = tfBuffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame",
+    tfStamped = tfBuffer.lookupTransform("arm1_base_link", "logical_camera_" + unit + "_frame",
     ros::Time(0.0), ros::Duration(1.0));
     ROS_DEBUG("Transform to [%s] from [%s]", tfStamped.header.frame_id.c_str(),
     tfStamped.child_frame_id.c_str());
@@ -271,6 +271,9 @@ int main(int argc, char **argv)
   goal_pose.pose.orientation.y = 0.707;
   goal_pose.pose.orientation.z = 0.0;
 
+  ROS_INFO("Pose of object in robot's reference frame (w,x,y,z),(X,Y,Z): (%f,%f,%f,%f),(%f,%f,%f)", \
+    goal_pose.pose.orientation.w, goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z, \
+    goal_pose.pose.position.x, goal_pose.pose.position.x, goal_pose.pose.position.x);
 
   return 0;
 }
