@@ -194,7 +194,12 @@ int main(int argc, char **argv)
   materialLocationsType.request.material_type = type;
   std::string unit;
   if (materialLocations.call(materialLocationsType)) {
-    unit = materialLocationsType.response.storage_units[0].unit_id;
+    int i = 0;
+    std::string belt = "belt";
+    while (belt.compare(materialLocationsType.response.storage_units[i].unit_id) == 0) {
+      i++;
+    }
+    unit = materialLocationsType.response.storage_units[i].unit_id;
     ROS_INFO("First storage unit: %s", unit.c_str());
   }
 
@@ -273,7 +278,7 @@ int main(int argc, char **argv)
 
   ROS_INFO("Pose of object in robot's reference frame (w,x,y,z),(X,Y,Z): (%f,%f,%f,%f),(%f,%f,%f)", \
     goal_pose.pose.orientation.w, goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z, \
-    goal_pose.pose.position.x, goal_pose.pose.position.x, goal_pose.pose.position.x);
+    goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z);
 
   return 0;
 }
