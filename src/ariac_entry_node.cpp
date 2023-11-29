@@ -13,6 +13,8 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 #include "geometry_msgs/TransformStamped.h"
 
+#include "sensor_msgs/JointState.h"
+
 // Declaring a vector of data type.
 std::vector<osrf_gear::Order> orders_vector;
 
@@ -22,6 +24,12 @@ void ordersCallback(const osrf_gear::Order::ConstPtr& msg)
   orders_vector.push_back(*msg);
 }
 
+// Callback function for joint states
+sensor_msgs::JointState joints;
+void jointStatesCallback(const sensor_msgs::JointState::ConstPtr& msg)
+{
+  joints = *msg;
+}
 
 osrf_gear::LogicalCameraImage agv1;
 void cameraCallback_agv1(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
@@ -149,6 +157,8 @@ int main(int argc, char **argv)
   ros::Subscriber sub9 = n.subscribe("/ariac/quality_control_sensor_1", 1000, cameraCallback_sen1);
   ros::Subscriber sub10 = n.subscribe("/ariac/quality_control_sensor_2", 1000, cameraCallback_sen2);
   
+  // Subscribe to joint states topic
+  ros::Subscriber joint_states = n.subscribe("/ariac/arm1/joint_states", 1000, jointStatesCallback);
 
   // Try to start competition
   if (begin_client.call(begin_comp)){
@@ -237,6 +247,7 @@ int main(int argc, char **argv)
   else if (unit.compare("sen2") == 0) {
     models = sen2.models;
   }
+
   // Get pose of part in frame of correct camera
   geometry_msgs::Pose pose;
   for (osrf_gear::Model model : models){
@@ -280,5 +291,17 @@ int main(int argc, char **argv)
     goal_pose.pose.orientation.w, goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z, \
     goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z);
 
+  ros::AsyncSpinner spinner(1); // Use 1 thread
+  spinner.start(); // A spinner makes calling ros::spin() unnecessary.
+  while (ros::ok()) {
+
+    ROS_INFO_THROTTLE(10, "Current Joint States: [%f, %f, %f, %f, %f, %f] Radians",\
+     joints.position[0],\
+     joints.position[1],\
+     joints.position[2],\
+     joints.position[3],\
+     joints.position[4],\
+     joints.position[5]);
+  }
   return 0;
 }
