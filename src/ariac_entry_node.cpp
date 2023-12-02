@@ -15,6 +15,10 @@
 
 #include "sensor_msgs/JointState.h"
 
+#include "ik_service/PoseIK.h"
+#include <cstdlib>
+#include "geometry_msgs/Pose.h"
+
 // Declaring a vector of data type.
 std::vector<osrf_gear::Order> orders_vector;
 
@@ -142,7 +146,7 @@ int main(int argc, char **argv)
 
   // Service to begin compition
   std_srvs::Trigger begin_comp;
-  // Create the service client.
+  // Create the service client to start competetion.
   ros::ServiceClient begin_client = n.serviceClient<std_srvs::Trigger>("/ariac/start_competition");
 
   // Subscribe to orders cameras
@@ -159,6 +163,10 @@ int main(int argc, char **argv)
   
   // Subscribe to joint states topic
   ros::Subscriber joint_states = n.subscribe("/ariac/arm1/joint_states", 1000, jointStatesCallback);
+
+  // Add ik_service
+  ros::service::waitForService("pose_ik",-1);
+  ros::ServiceClient ik_client = n.serviceClient<ik_service::PoseIK>("pose_ik");
 
   // Try to start competition
   if (begin_client.call(begin_comp)){
@@ -302,6 +310,31 @@ int main(int argc, char **argv)
      joints.position[3],\
      joints.position[4],\
      joints.position[5]);
+
+    ik_service::PoseIK ik_pose;
+    //geometry_msgs::Pose part_pose;
+    //part_pose.position.x = 0.5;
+    //ik_pose.request.part_pose = part_pose;
+    ik_pose.request.part_pose = goal_pose.pose;
+    
+    if (ik_client.call(ik_pose)) {
+      ROS_INFO_THROTTLE(10,"Call to ik_service returned [%i] solutions", ik_pose.response.num_sols);
+      for (int sol = 0; sol < ik_pose.response.num_sols; sol ++){
+          ROS_INFO_THROTTLE(10, "Solution %i: [%f, %f, %f, %f, %f, %f] radians", sol+1, \
+          ik_pose.response.joint_solutions[sol].joint_angles[0], \
+          ik_pose.response.joint_solutions[sol].joint_angles[1], \
+          ik_pose.response.joint_solutions[sol].joint_angles[2], \
+          ik_pose.response.joint_solutions[sol].joint_angles[3], \
+          ik_pose.response.joint_solutions[sol].joint_angles[4], \
+          ik_pose.response.joint_solutions[sol].joint_angles[5]);
+      }
+    }
+    else {
+      ROS_ERROR("Failed to call service ik_service");
+      return 1;
+    }
+
+    loop_rate.sleep();
   }
   return 0;
 }

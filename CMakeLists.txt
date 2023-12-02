@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rviz
   std_msgs
+  ik_service
 )
 
 ## System dependencies are found with CMake's conventions
