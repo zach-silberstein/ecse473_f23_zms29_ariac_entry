@@ -166,6 +166,96 @@ geometry_msgs::Pose getCameraPose(std::string type, std::string unit) {
   return pose;
 }
 
+// Define number of joints
+#define NUM_JOINTS 6
+
+// Calculate wanted IK solution
+//int usefulIKSoultions(double *solutions) {
+void usefukIKSutions(geometry_msgs::PoseStamped goal_pose, ros::ServiceClient ik_client) {
+
+  // Get the inverse kinematics solutions for the goal_pose
+  ik_service::PoseIK ik_pose;
+  ik_pose.request.part_pose = goal_pose.pose;
+  if (ik_client.call(ik_pose)) {
+    ROS_INFO_THROTTLE(5,"Call to ik_service returned [%i] solutions", ik_pose.response.num_sols);
+    
+    float low[6] = {0, M_PI/2, 0, 0, M_PI/2, 0};
+    float high[6] = {2*M_PI, M_PI, 2*M_PI, 2*M_PI, M_PI/2, 2*M_PI};
+    //float low[6] = {0, 0, 0, 0, 0, 0};
+    //float high[6] = {2*M_PI, 2*M_PI, 2*M_PI, 2*M_PI, M_PI*2, 2*M_PI};
+    bool found;
+
+    // Loop over each solution
+    for (int sol = 0; sol < ik_pose.response.num_sols; sol++){
+      // Assume this solution works
+      found = true;
+      // Loop over each joint
+      for (int angle = 0; angle < NUM_JOINTS; angle++) {
+        // If the joint does not fall within the range
+        if(!((ik_pose.response.joint_solutions[sol].joint_angles[angle] - low[angle]) > -0.01 && \
+            ik_pose.response.joint_solutions[sol].joint_angles[angle] - high[angle] < 0.01)) {
+          // Not the wanted solution
+          found = false;
+          break;
+        }
+      }
+
+      if (found){
+        ROS_INFO_THROTTLE(5,"Desired solution is solution number [%i]", sol);
+        //return sol;
+      }
+
+    }
+
+
+    /*
+    for (int sol = 0; sol < ik_pose.response.num_sols; sol ++){
+        ROS_INFO_THROTTLE(10, "Solution %i: [%f, %f, %f, %f, %f, %f] radians", sol+1, \
+        ik_pose.response.joint_solutions[sol].joint_angles[0], \
+        ik_pose.response.joint_solutions[sol].joint_angles[1], \
+        ik_pose.response.joint_solutions[sol].joint_angles[2], \
+        ik_pose.response.joint_solutions[sol].joint_angles[3], \
+        ik_pose.response.joint_solutions[sol].joint_angles[4], \
+        ik_pose.response.joint_solutions[sol].joint_angles[5]);
+    }
+    */
+    
+  }
+
+  else {
+    ROS_ERROR("Failed to call service ik_service");
+    //return 1;
+  }
+
+  /*
+  float low[6] = {0, M_PI/2, 0, 0, M_PI/2, 0};
+  float high[6] = {2*M_PI, M_PI, 2*M_PI, 2*M_PI, M_PI/2, 2*M_PI};
+  bool found;
+
+  // Loop over each solution
+  for (int sol = 0; sol < sizeof(solutions) / sizeof(float); sol++){
+    // Assume this solution works
+    found = true;
+    // Loop over each joint
+    for (int angle = 0; angle < 6; angle++) {
+      // If the joint does not fall within the range
+      if((*(solutions+sol*NUM_JOINTS+angle) - low[angle]) < 0.001 || *(solutions+sol*NUM_JOINTS+angle) - high[angle] < 0.001) {
+        // Not the wanted solution
+        found = false;
+        break;
+      }
+    }
+
+    if (found){
+      return sol;
+    }
+
+  }
+  */
+
+
+}
+
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
  */
@@ -261,32 +351,12 @@ int main(int argc, char **argv)
   // Clearing/initializing vector
   orders_vector.clear();
 
-  /*
-  // Wait for first order to come in
-  while (orders_vector.empty()){
-    ros::spinOnce();
-    loop_rate.sleep();
-  }
-  */
-
   // Service to get material
   osrf_gear::GetMaterialLocations materialLocationsType;
   // Create the service client.
   ros::ServiceClient materialLocations = n.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
 
-  
-
-  /*
-  // Add height to the goal pose.
-  goal_pose.pose.position.z += 0.10; // 10 cm above the part
-  // Tell the end effector to rotate 90 degrees around the y-axis (in quaternions...).
-  goal_pose.pose.orientation.w = 0.707;
-  goal_pose.pose.orientation.x = 0.0;
-  goal_pose.pose.orientation.y = 0.707;
-  goal_pose.pose.orientation.z = 0.0;
-  */
-
-// Publisher for follow_joint_trajectory
+  // Publisher for follow_joint_trajectory
  ros::Publisher follow_joint_trajectory = n.advertise<trajectory_msgs::JointTrajectory>("ariac/arm/command", 1000);
 
 
@@ -326,8 +396,20 @@ int main(int argc, char **argv)
       goal_pose.pose.orientation.w, goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z, \
       goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z);
 
+      // Add height to the goal pose.
+      goal_pose.pose.position.z += 0.10; // 10 cm above the part
+      // Tell the end effector to rotate 90 degrees around the y-axis (in quaternions...).
+      goal_pose.pose.orientation.w = 0.707;
+      goal_pose.pose.orientation.x = 0.0;
+      goal_pose.pose.orientation.y = 0.707;
+      goal_pose.pose.orientation.z = 0.0;
 
 
+
+      usefukIKSutions(goal_pose, ik_client);
+      
+      
+      /*
       // Instantiate variables for use with the kinematic system.
       double T_pose[4][4], T_des[4][4];
       double q_pose[6], q_des[8][6];
@@ -418,6 +500,8 @@ int main(int argc, char **argv)
       joint_trajectory.points[1].time_from_start = ros::Duration(1.0);
       
       follow_joint_trajectory.publish(joint_trajectory);
+      */
+      
 
 
 
