@@ -169,92 +169,6 @@ geometry_msgs::Pose getCameraPose(std::string type, std::string unit) {
 // Define number of joints
 #define NUM_JOINTS 6
 
-// Calculate wanted IK solution
-//int usefulIKSoultions(double *solutions) {
-void usefukIKSutions(geometry_msgs::PoseStamped goal_pose, ros::ServiceClient ik_client) {
-
-  // Get the inverse kinematics solutions for the goal_pose
-  ik_service::PoseIK ik_pose;
-  ik_pose.request.part_pose = goal_pose.pose;
-  if (ik_client.call(ik_pose)) {
-    ROS_INFO_THROTTLE(5,"Call to ik_service returned [%i] solutions", ik_pose.response.num_sols);
-    
-    float low[6] = {0, M_PI/2, 0, 0, M_PI/2, 0};
-    float high[6] = {2*M_PI, M_PI, 2*M_PI, 2*M_PI, M_PI/2, 2*M_PI};
-    //float low[6] = {0, 0, 0, 0, 0, 0};
-    //float high[6] = {2*M_PI, 2*M_PI, 2*M_PI, 2*M_PI, M_PI*2, 2*M_PI};
-    bool found;
-
-    // Loop over each solution
-    for (int sol = 0; sol < ik_pose.response.num_sols; sol++){
-      // Assume this solution works
-      found = true;
-      // Loop over each joint
-      for (int angle = 0; angle < NUM_JOINTS; angle++) {
-        // If the joint does not fall within the range
-        if(!((ik_pose.response.joint_solutions[sol].joint_angles[angle] - low[angle]) > -0.01 && \
-            ik_pose.response.joint_solutions[sol].joint_angles[angle] - high[angle] < 0.01)) {
-          // Not the wanted solution
-          found = false;
-          break;
-        }
-      }
-
-      if (found){
-        ROS_INFO_THROTTLE(5,"Desired solution is solution number [%i]", sol);
-        //return sol;
-      }
-
-    }
-
-
-    /*
-    for (int sol = 0; sol < ik_pose.response.num_sols; sol ++){
-        ROS_INFO_THROTTLE(10, "Solution %i: [%f, %f, %f, %f, %f, %f] radians", sol+1, \
-        ik_pose.response.joint_solutions[sol].joint_angles[0], \
-        ik_pose.response.joint_solutions[sol].joint_angles[1], \
-        ik_pose.response.joint_solutions[sol].joint_angles[2], \
-        ik_pose.response.joint_solutions[sol].joint_angles[3], \
-        ik_pose.response.joint_solutions[sol].joint_angles[4], \
-        ik_pose.response.joint_solutions[sol].joint_angles[5]);
-    }
-    */
-    
-  }
-
-  else {
-    ROS_ERROR("Failed to call service ik_service");
-    //return 1;
-  }
-
-  /*
-  float low[6] = {0, M_PI/2, 0, 0, M_PI/2, 0};
-  float high[6] = {2*M_PI, M_PI, 2*M_PI, 2*M_PI, M_PI/2, 2*M_PI};
-  bool found;
-
-  // Loop over each solution
-  for (int sol = 0; sol < sizeof(solutions) / sizeof(float); sol++){
-    // Assume this solution works
-    found = true;
-    // Loop over each joint
-    for (int angle = 0; angle < 6; angle++) {
-      // If the joint does not fall within the range
-      if((*(solutions+sol*NUM_JOINTS+angle) - low[angle]) < 0.001 || *(solutions+sol*NUM_JOINTS+angle) - high[angle] < 0.001) {
-        // Not the wanted solution
-        found = false;
-        break;
-      }
-    }
-
-    if (found){
-      return sol;
-    }
-
-  }
-  */
-
-
-}
 
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
@@ -357,7 +271,7 @@ int main(int argc, char **argv)
   ros::ServiceClient materialLocations = n.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
 
   // Publisher for follow_joint_trajectory
- ros::Publisher follow_joint_trajectory = n.advertise<trajectory_msgs::JointTrajectory>("ariac/arm/command", 1000);
+ ros::Publisher follow_joint_trajectory = n.advertise<trajectory_msgs::JointTrajectory>("ariac/arm1/arm/command", 1000);
 
 
   int count = 0;
@@ -405,48 +319,54 @@ int main(int argc, char **argv)
       goal_pose.pose.orientation.z = 0.0;
 
 
+      // Get the inverse kinematics solutions for the goal_pose
+      ik_service::PoseIK ik_pose;
+      ik_pose.request.part_pose = goal_pose.pose;
+      // Store wanted solution
+      int sol;
+      if (ik_client.call(ik_pose)) {
+        ROS_INFO_THROTTLE(5,"Call to ik_service returned [%i] solutions", ik_pose.response.num_sols);
+        
+        float low[6] = {0, M_PI/2, 0, 0, M_PI/2, 0};
+        float high[6] = {2*M_PI, M_PI, 2*M_PI, 2*M_PI, M_PI/2, 2*M_PI};
+        bool found;
 
-      usefukIKSutions(goal_pose, ik_client);
+        // Loop over each solution
+        for (sol = 0; sol < ik_pose.response.num_sols; sol++){
+          // Assume this solution works
+          found = true;
+          // Loop over each joint
+          for (int angle = 0; angle < NUM_JOINTS; angle++) {
+            // If the joint does not fall within the range
+            if(!((ik_pose.response.joint_solutions[sol].joint_angles[angle] - low[angle]) > -0.01 && \
+                ik_pose.response.joint_solutions[sol].joint_angles[angle] - high[angle] < 0.01)) {
+              // Not the wanted solution
+              found = false;
+              break;
+            }
+          }
+
+          if (found){
+            ROS_INFO_THROTTLE(5,"Desisred solution is solution number [%i]", sol);
+            break;
+          }
+
+        }
+      }
+
+      else {
+        ROS_ERROR("Failed to call service ik_service");
+        return 1;
+      }
+      ROS_INFO_THROTTLE(5, "Desired Joint Angles [%f, %f, %f, %f, %f, %f] Radians", \
+            ik_pose.response.joint_solutions[sol].joint_angles[0],\
+            ik_pose.response.joint_solutions[sol].joint_angles[1],\
+            ik_pose.response.joint_solutions[sol].joint_angles[2],\
+            ik_pose.response.joint_solutions[sol].joint_angles[3],\
+            ik_pose.response.joint_solutions[sol].joint_angles[4],\
+            ik_pose.response.joint_solutions[sol].joint_angles[5]);
       
       
-      /*
-      // Instantiate variables for use with the kinematic system.
-      double T_pose[4][4], T_des[4][4];
-      double q_pose[6], q_des[8][6];
-
-      // Where is the end effector given the joint angles.
-      // joint_states.position[0] is the linear_arm_actuator_joint
-      q_pose[0] = joint_states.position[1];
-      q_pose[1] = joint_states.position[2];
-      q_pose[2] = joint_states.position[3];
-      q_pose[3] = joint_states.position[4];
-      q_pose[4] = joint_states.position[5];
-      q_pose[5] = joint_states.position[6];
-
-      ROS_INFO_THROTTLE(10, "Current Joint States: [%f, %f, %f, %f, %f, %f, %f] Radians",\
-      joint_states.position[0],\
-      joint_states.position[1],\
-      joint_states.position[2],\
-      joint_states.position[3],\
-      joint_states.position[4],\
-      joint_states.position[5],\
-      joint_states.position[6]);
-      
-
-      // Desired pose of the end effector wrt the base_link.
-      T_des[0][3] = goal_pose.pose.position.x;
-      T_des[1][3] = goal_pose.pose.position.y;
-      T_des[2][3] = goal_pose.pose.position.z + 0.3; // above part
-      T_des[3][3] = 1.0;
-      
-      // The orientation of the end effector so that the end effector is down.
-      T_des[0][0] = 0.0; T_des[0][1] = -1.0; T_des[0][2] = 0.0;
-      T_des[1][0] = 0.0; T_des[1][1] = 0.0; T_des[1][2] = 1.0;
-      T_des[2][0] = -1.0; T_des[2][1] = 0.0; T_des[2][2] = 0.0;
-      T_des[3][0] = 0.0; T_des[3][1] = 0.0; T_des[3][2] = 0.0;
-
-      int num_sols = ur_kinematics::inverse((double *)&T_des, (double *)&q_des);
-
       // Declare a variable for generating and publishing a trajectory.
       trajectory_msgs::JointTrajectory joint_trajectory;
 
@@ -454,8 +374,7 @@ int main(int argc, char **argv)
       // Each joint trajectory should have an non-monotonically increasing sequence number.
       joint_trajectory.header.seq = count++;
       joint_trajectory.header.stamp = ros::Time::now(); // When was this message created.
-      joint_trajectory.header.frame_id = "/world"; // Frame in which this is specified.
-
+      joint_trajectory.header.frame_id = "/world"; // Frame in which this is specified
 
       // Set the names of the joints being used. All must be present.
       joint_trajectory.joint_names.clear();
@@ -483,59 +402,23 @@ int main(int argc, char **argv)
       // When to start (immediately upon receipt).
       joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
 
-      // Must select which of the num_sols solutions to use. Just start with the first.
-      int q_des_indx = 0;
-
       // Set the end point for the movement
       joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
 
-
       // Set the linear_arm_actuator_joint from joint_states as it is not part of the inverse kinematics solution.
       joint_trajectory.points[1].positions[0] = joint_states.position[1];
+      
+      // The actuators are commanded in an odd order, enter the joint positions in the correct positions
       for (int indy = 0; indy < 6; indy++) {
-        joint_trajectory.points[1].positions[indy + 1] = q_des[q_des_indx][indy];
+        joint_trajectory.points[1].positions[indy + 1] = ik_pose.response.joint_solutions[sol].joint_angles[indy];
       }
-
       // How long to take for the movement.
       joint_trajectory.points[1].time_from_start = ros::Duration(1.0);
-      
+
+      // Publish message to move arm
       follow_joint_trajectory.publish(joint_trajectory);
-      */
-      
-
-
-
-
-      // The actuators are commanded in an odd order, enter the joint positions in the correct positions
-      /*
-      ik_service::PoseIK ik_pose;
-      //geometry_msgs::Pose part_pose;
-      //part_pose.position.x = 0.5;
-      //ik_pose.request.part_pose = part_pose;
-      ik_pose.request.part_pose = goal_pose.pose;
-
-      
-      if (ik_client.call(ik_pose)) {
-        ROS_INFO_THROTTLE(10,"Call to ik_service returned [%i] solutions", ik_pose.response.num_sols);
-        for (int sol = 0; sol < ik_pose.response.num_sols; sol ++){
-            ROS_INFO_THROTTLE(10, "Solution %i: [%f, %f, %f, %f, %f, %f] radians", sol+1, \
-            ik_pose.response.joint_solutions[sol].joint_angles[0], \
-            ik_pose.response.joint_solutions[sol].joint_angles[1], \
-            ik_pose.response.joint_solutions[sol].joint_angles[2], \
-            ik_pose.response.joint_solutions[sol].joint_angles[3], \
-            ik_pose.response.joint_solutions[sol].joint_angles[4], \
-            ik_pose.response.joint_solutions[sol].joint_angles[5]);
-        }
-      }
-      else {
-        ROS_ERROR("Failed to call service ik_service");
-        return 1;
-      }
-      */
 
     }
-
-    
 
     loop_rate.sleep();
   }
