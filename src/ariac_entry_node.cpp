@@ -95,7 +95,7 @@ std::string getOrderType(){
   // Get part of the first order
   std::string type;
   type = orders_vector[0].shipments[0].products[0].type;
-  ROS_INFO_THROTTLE(5, "First order type: %s", type.c_str());
+  ROS_INFO( "First order type: %s", type.c_str());
   return type;
 }
 
@@ -111,7 +111,7 @@ std::string getPartLocation(std::string type, ros::ServiceClient materialLocatio
       i++;
     }
     unit = materialLocationsType.response.storage_units[i].unit_id;
-    ROS_INFO_THROTTLE(5, "First storage unit: %s", unit.c_str());
+    ROS_INFO( "First storage unit: %s", unit.c_str());
   }
   return unit;
 
@@ -157,7 +157,7 @@ geometry_msgs::Pose getCameraPose(std::string type, std::string unit) {
   for (osrf_gear::Model model : models){
     if (model.type == type){
       pose = model.pose;
-      ROS_INFO_THROTTLE(5, "Pose of object in camera's reference frame (w,x,y,z),(X,Y,Z): (%f,%f,%f,%f),(%f,%f,%f)",\
+      ROS_INFO("Pose of object in camera's reference frame (w,x,y,z),(X,Y,Z): (%f,%f,%f,%f),(%f,%f,%f)",\
       pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z, \
         pose.position.x, pose.position.y, pose.position.z);
       break;
@@ -306,7 +306,7 @@ int main(int argc, char **argv)
       // Copy pose from the logical camera.
       part_pose.pose = pose;
       tf2::doTransform(part_pose, goal_pose, tfStamped);
-      ROS_INFO_THROTTLE(5, "Pose of object in robot's reference frame (w,x,y,z),(X,Y,Z): (%f,%f,%f,%f),(%f,%f,%f)", \
+      ROS_INFO("Pose of object in robot's reference frame (w,x,y,z),(X,Y,Z): (%f,%f,%f,%f),(%f,%f,%f)", \
       goal_pose.pose.orientation.w, goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z, \
       goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z);
 
@@ -327,8 +327,8 @@ int main(int argc, char **argv)
       if (ik_client.call(ik_pose)) {
         ROS_INFO_THROTTLE(5,"Call to ik_service returned [%i] solutions", ik_pose.response.num_sols);
         
-        float low[6] = {0, M_PI/2, 0, 0, M_PI/2, 0};
-        float high[6] = {2*M_PI, M_PI, 2*M_PI, 2*M_PI, M_PI/2, 2*M_PI};
+        float low[6] = {0, 3*M_PI/2, 0, 0, M_PI/2, 0};
+        float high[6] = {2*M_PI, 2*M_PI, 2*M_PI, 2*M_PI, M_PI/2, 2*M_PI};
         bool found;
 
         // Loop over each solution
@@ -347,7 +347,7 @@ int main(int argc, char **argv)
           }
 
           if (found){
-            ROS_INFO_THROTTLE(5,"Desisred solution is solution number [%i]", sol);
+            ROS_INFO("Desisred solution is solution number [%i]", sol);
             break;
           }
 
@@ -358,7 +358,7 @@ int main(int argc, char **argv)
         ROS_ERROR("Failed to call service ik_service");
         return 1;
       }
-      ROS_INFO_THROTTLE(5, "Desired Joint Angles [%f, %f, %f, %f, %f, %f] Radians", \
+      ROS_INFO("Desired Joint Angles [%f, %f, %f, %f, %f, %f] Radians", \
             ik_pose.response.joint_solutions[sol].joint_angles[0],\
             ik_pose.response.joint_solutions[sol].joint_angles[1],\
             ik_pose.response.joint_solutions[sol].joint_angles[2],\
@@ -412,11 +412,18 @@ int main(int argc, char **argv)
       for (int indy = 0; indy < 6; indy++) {
         joint_trajectory.points[1].positions[indy + 1] = ik_pose.response.joint_solutions[sol].joint_angles[indy];
       }
+
       // How long to take for the movement.
-      joint_trajectory.points[1].time_from_start = ros::Duration(1.0);
+      joint_trajectory.points[1].time_from_start = ros::Duration(5.0);
 
       // Publish message to move arm
       follow_joint_trajectory.publish(joint_trajectory);
+
+
+      ROS_INFO("before [%2.4f]",joint_trajectory.points.back().time_from_start.toSec());
+      ros::Duration(joint_trajectory.points.back().time_from_start).sleep();
+      ros::Duration(1.0).sleep();
+      ROS_INFO("after");
 
     }
 
