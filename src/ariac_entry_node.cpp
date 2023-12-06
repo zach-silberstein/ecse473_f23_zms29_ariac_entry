@@ -169,6 +169,118 @@ geometry_msgs::Pose getCameraPose(std::string type, std::string unit) {
 // Define number of joints
 #define NUM_JOINTS 6
 
+ik_service::JointSolutions inverseKinematicsSolver(geometry_msgs::PoseStamped goal_pose, ros::ServiceClient ik_client){
+  // Get the inverse kinematics solutions for the goal_pose
+  ik_service::PoseIK ik_pose;
+  
+  ik_pose.request.part_pose = goal_pose.pose;
+  // Store wanted solution
+  int sol;
+  ik_service::JointSolutions blank;
+  if (ik_client.call(ik_pose)) {
+    ROS_INFO("Call to ik_service returned [%i] solutions", ik_pose.response.num_sols);
+    
+    float low[6] = {0, 3*M_PI/2, 0, 0, M_PI/2, 0};
+    float high[6] = {2*M_PI, 2*M_PI, 2*M_PI, 2*M_PI, M_PI/2, 2*M_PI};
+    bool found;
+
+    // Loop over each solution
+    for (sol = 0; sol < ik_pose.response.num_sols; sol++){
+      // Assume this solution works
+      found = true;
+      // Loop over each joint
+      for (int angle = 0; angle < NUM_JOINTS; angle++) {
+        // If the joint does not fall within the range
+        if(!((ik_pose.response.joint_solutions[sol].joint_angles[angle] - low[angle]) > -0.01 && \
+            ik_pose.response.joint_solutions[sol].joint_angles[angle] - high[angle] < 0.01)) {
+          // Not the wanted solution
+          found = false;
+          break;
+        }
+      }
+
+      if (found){
+        ROS_INFO("Desisred solution is solution number [%i]", sol);
+        ROS_INFO("Desired Joint Angles [%f, %f, %f, %f, %f, %f] Radians", \
+        ik_pose.response.joint_solutions[sol].joint_angles[0],\
+        ik_pose.response.joint_solutions[sol].joint_angles[1],\
+        ik_pose.response.joint_solutions[sol].joint_angles[2],\
+        ik_pose.response.joint_solutions[sol].joint_angles[3],\
+        ik_pose.response.joint_solutions[sol].joint_angles[4],\
+        ik_pose.response.joint_solutions[sol].joint_angles[5]);
+        return ik_pose.response.joint_solutions[sol];
+      }
+
+    }
+    ROS_ERROR("No solution found that meets criteria");
+    return blank;
+  }
+
+  else {
+    ROS_ERROR("Failed to call service ik_service");
+    return blank;
+  }
+}
+
+// Moves arm to have have desired_angles
+void moveArm(int count, ik_service::JointSolutions desired_angles, ros::Publisher follow_joint_trajectory) {
+  // Declare a variable for generating and publishing a trajectory.
+  trajectory_msgs::JointTrajectory joint_trajectory;
+
+  // Fill out the joint trajectory header.
+  // Each joint trajectory should have an non-monotonically increasing sequence number.
+  joint_trajectory.header.seq = count;
+  joint_trajectory.header.stamp = ros::Time::now(); // When was this message created.
+  joint_trajectory.header.frame_id = "/world"; // Frame in which this is specified
+
+  // Set the names of the joints being used. All must be present.
+  joint_trajectory.joint_names.clear();
+  joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
+  joint_trajectory.joint_names.push_back("shoulder_pan_joint");
+  joint_trajectory.joint_names.push_back("shoulder_lift_joint");
+  joint_trajectory.joint_names.push_back("elbow_joint");
+  joint_trajectory.joint_names.push_back("wrist_1_joint");
+  joint_trajectory.joint_names.push_back("wrist_2_joint");
+  joint_trajectory.joint_names.push_back("wrist_3_joint");
+
+  // Set a start and end point.
+  joint_trajectory.points.resize(2);
+  // Set the start point to the current position of the joints from joint_states.
+  joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
+  for (int indy = 0; indy < joint_trajectory.joint_names.size(); indy++) {
+    for (int indz = 0; indz < joint_states.name.size(); indz++) {
+      if (joint_trajectory.joint_names[indy] == joint_states.name[indz]) {
+        joint_trajectory.points[0].positions[indy] = joint_states.position[indz];
+        break;
+      }
+    }
+  }
+
+  // When to start (immediately upon receipt).
+  joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
+
+  // Set the end point for the movement
+  joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
+
+  // Set the linear_arm_actuator_joint from joint_states as it is not part of the inverse kinematics solution.
+  joint_trajectory.points[1].positions[0] = joint_states.position[1];
+  
+  // The actuators are commanded in an odd order, enter the joint positions in the correct positions
+  for (int indy = 0; indy < 6; indy++) {
+    joint_trajectory.points[1].positions[indy + 1] = desired_angles.joint_angles[indy];
+  }
+
+  // How long to take for the movement.
+  joint_trajectory.points[1].time_from_start = ros::Duration(5.0);
+
+  // Publish message to move arm
+  follow_joint_trajectory.publish(joint_trajectory);
+
+  // Sleep while arm moves
+  ros::Duration(joint_trajectory.points.back().time_from_start).sleep();
+  ros::Duration(1.0).sleep();
+}
+
 
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
@@ -302,7 +414,7 @@ int main(int argc, char **argv)
       //tf2_ross::Buffer.lookupTransform("to_frame", "from_frame", "how_recent", "how_long_to_wait_for_transform");
 
       // Create variables
-      geometry_msgs::PoseStamped part_pose, goal_pose;
+      geometry_msgs::PoseStamped part_pose, goal_pose, above_pose;
       // Copy pose from the logical camera.
       part_pose.pose = pose;
       tf2::doTransform(part_pose, goal_pose, tfStamped);
@@ -310,120 +422,52 @@ int main(int argc, char **argv)
       goal_pose.pose.orientation.w, goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z, \
       goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z);
 
-      // Add height to the goal pose.
-      goal_pose.pose.position.z += 0.30; // 30 cm above the part
+      
       // Tell the end effector to rotate 90 degrees around the y-axis (in quaternions...).
       goal_pose.pose.orientation.w = 0.707;
       goal_pose.pose.orientation.x = 0.0;
       goal_pose.pose.orientation.y = 0.707;
       goal_pose.pose.orientation.z = 0.0;
 
+      // Add height to the goal pose.
+      above_pose = goal_pose;
+      above_pose.pose.position.z += 0.30; // 30 cm above the part
+
+      // Get the inverse kinematics solutions for the above_pose
+      ik_service::JointSolutions desired_angles_above = inverseKinematicsSolver(above_pose, ik_client);      
+      
+      // Store the orignal joint angles
+      sensor_msgs::JointState original_angles = joint_states;
+
+      // Move arm over part
+      moveArm(count, desired_angles_above, follow_joint_trajectory);
+      count++;
 
       // Get the inverse kinematics solutions for the goal_pose
-      ik_service::PoseIK ik_pose;
-      ik_pose.request.part_pose = goal_pose.pose;
-      // Store wanted solution
-      int sol;
-      if (ik_client.call(ik_pose)) {
-        ROS_INFO("Call to ik_service returned [%i] solutions", ik_pose.response.num_sols);
-        
-        float low[6] = {0, 3*M_PI/2, 0, 0, M_PI/2, 0};
-        float high[6] = {2*M_PI, 2*M_PI, 2*M_PI, 2*M_PI, M_PI/2, 2*M_PI};
-        bool found;
+      ik_service::JointSolutions desired_angles_goal = inverseKinematicsSolver(goal_pose, ik_client); 
+      // Move arm down to part
+      moveArm(count, desired_angles_goal, follow_joint_trajectory);
+      count++;
 
-        // Loop over each solution
-        for (sol = 0; sol < ik_pose.response.num_sols; sol++){
-          // Assume this solution works
-          found = true;
-          // Loop over each joint
-          for (int angle = 0; angle < NUM_JOINTS; angle++) {
-            // If the joint does not fall within the range
-            if(!((ik_pose.response.joint_solutions[sol].joint_angles[angle] - low[angle]) > -0.01 && \
-                ik_pose.response.joint_solutions[sol].joint_angles[angle] - high[angle] < 0.01)) {
-              // Not the wanted solution
-              found = false;
-              break;
-            }
-          }
+      // Move arm above part
+      moveArm(count, desired_angles_above, follow_joint_trajectory);
+      count++;
 
-          if (found){
-            ROS_INFO("Desisred solution is solution number [%i]", sol);
-            break;
-          }
 
-        }
+      // GOOD TO HERE NEED TO NEXT MAKE ARM RETURN TO STARTING POSE
+
+      // Move arm to original position
+      ik_service::JointSolutions test;
+      for (int i =0; i < NUM_JOINTS; i++) {
+        test.joint_angles[i] = original_angles.position[i+1];
       }
 
-      else {
-        ROS_ERROR("Failed to call service ik_service");
-        return 1;
-      }
-      ROS_INFO("Desired Joint Angles [%f, %f, %f, %f, %f, %f] Radians", \
-            ik_pose.response.joint_solutions[sol].joint_angles[0],\
-            ik_pose.response.joint_solutions[sol].joint_angles[1],\
-            ik_pose.response.joint_solutions[sol].joint_angles[2],\
-            ik_pose.response.joint_solutions[sol].joint_angles[3],\
-            ik_pose.response.joint_solutions[sol].joint_angles[4],\
-            ik_pose.response.joint_solutions[sol].joint_angles[5]);
+
+      moveArm(count, test, follow_joint_trajectory);
+      count++;
+
+
       
-      
-      // Declare a variable for generating and publishing a trajectory.
-      trajectory_msgs::JointTrajectory joint_trajectory;
-
-      // Fill out the joint trajectory header.
-      // Each joint trajectory should have an non-monotonically increasing sequence number.
-      joint_trajectory.header.seq = count++;
-      joint_trajectory.header.stamp = ros::Time::now(); // When was this message created.
-      joint_trajectory.header.frame_id = "/world"; // Frame in which this is specified
-
-      // Set the names of the joints being used. All must be present.
-      joint_trajectory.joint_names.clear();
-      joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
-      joint_trajectory.joint_names.push_back("shoulder_pan_joint");
-      joint_trajectory.joint_names.push_back("shoulder_lift_joint");
-      joint_trajectory.joint_names.push_back("elbow_joint");
-      joint_trajectory.joint_names.push_back("wrist_1_joint");
-      joint_trajectory.joint_names.push_back("wrist_2_joint");
-      joint_trajectory.joint_names.push_back("wrist_3_joint");
-
-      // Set a start and end point.
-      joint_trajectory.points.resize(2);
-      // Set the start point to the current position of the joints from joint_states.
-      joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
-      for (int indy = 0; indy < joint_trajectory.joint_names.size(); indy++) {
-        for (int indz = 0; indz < joint_states.name.size(); indz++) {
-          if (joint_trajectory.joint_names[indy] == joint_states.name[indz]) {
-            joint_trajectory.points[0].positions[indy] = joint_states.position[indz];
-            break;
-          }
-        }
-      }
-
-      // When to start (immediately upon receipt).
-      joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
-
-      // Set the end point for the movement
-      joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
-
-      // Set the linear_arm_actuator_joint from joint_states as it is not part of the inverse kinematics solution.
-      joint_trajectory.points[1].positions[0] = joint_states.position[1];
-      
-      // The actuators are commanded in an odd order, enter the joint positions in the correct positions
-      for (int indy = 0; indy < 6; indy++) {
-        joint_trajectory.points[1].positions[indy + 1] = ik_pose.response.joint_solutions[sol].joint_angles[indy];
-      }
-
-      // How long to take for the movement.
-      joint_trajectory.points[1].time_from_start = ros::Duration(5.0);
-
-      // Publish message to move arm
-      follow_joint_trajectory.publish(joint_trajectory);
-
-
-      ROS_INFO("before [%2.4f]",joint_trajectory.points.back().time_from_start.toSec());
-      ros::Duration(joint_trajectory.points.back().time_from_start).sleep();
-      ros::Duration(1.0).sleep();
-      ROS_INFO("after");
 
     }
 
