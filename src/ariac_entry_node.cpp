@@ -311,7 +311,7 @@ int main(int argc, char **argv)
       goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z);
 
       // Add height to the goal pose.
-      goal_pose.pose.position.z += 0.10; // 10 cm above the part
+      goal_pose.pose.position.z += 0.30; // 30 cm above the part
       // Tell the end effector to rotate 90 degrees around the y-axis (in quaternions...).
       goal_pose.pose.orientation.w = 0.707;
       goal_pose.pose.orientation.x = 0.0;
@@ -325,7 +325,7 @@ int main(int argc, char **argv)
       // Store wanted solution
       int sol;
       if (ik_client.call(ik_pose)) {
-        ROS_INFO_THROTTLE(5,"Call to ik_service returned [%i] solutions", ik_pose.response.num_sols);
+        ROS_INFO("Call to ik_service returned [%i] solutions", ik_pose.response.num_sols);
         
         float low[6] = {0, 3*M_PI/2, 0, 0, M_PI/2, 0};
         float high[6] = {2*M_PI, 2*M_PI, 2*M_PI, 2*M_PI, M_PI/2, 2*M_PI};
