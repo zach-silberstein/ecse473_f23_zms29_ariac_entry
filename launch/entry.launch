@@ -1,8 +1,8 @@
 <launch>
-
+    <!-- arg to run ariac_entry_node -->
+    <arg name = "ariac_entry" defualt = "false"/>
+    <node name = "ik_service" pkg = "ik_service" type = "ik_service_node"/>
     <include file = "$(find ecse_373_ariac)/launch/ecse_373_ariac.launch" />
-    <node name = "ariac_entry" pkg = "ariac_entry" type = "ariac_entry"/>
+    <node if = "$(arg ariac_entry)" name = "ariac_entry" pkg = "ariac_entry" type = "ariac_entry"/>
 
 </launch>
-
-<!--/home/zach/ecse_373_ariac_ws/src/ecse_373_ariac/ecse_373_ariac/launch-->
