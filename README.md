@@ -1,7 +1,7 @@
 # Final Project
 
 ### This project creates a foundation for completing parts of the ARIAC (Agile Robotics for Industrial Automation Competition) 
-The project begins the competition and if began sucessfully it will display the first product in the first shipment of the first order, a bin that contians the product, the pose of the object in the cameras reference frame and the reference frame of the robot base link. Additionally, the arm will be moved over the part, picked up, and then moved to a spot near the bin.
+The project begins the competition and if began sucessfully it will display the first product in the first shipment of the first order, a bin that contians the product, the pose of the object in the cameras reference frame and the reference frame of the robot base link. Additionally, the arm will be moved over the part, picked up, and then moved to a spot near the bin.  
 By Zach Silberstein
 
 #### Initial setup
@@ -15,17 +15,28 @@ While untested due to my virtual machine crashing, a launch file is provided tha
     `roslaunch ariac_entry entry.launch`  
 By defualt, the launch file will not launch the ariac_entry_node. To do so, either run:  
      `roslaunch ariac_entry entry.launch ariac_entry:= true`  
-or use the perfered method by running the launch file and then running the node separately with the following commands: 
+or use the perfered method by running the launch file and then running the node separately with the following commands:  
     `roslaunch ariac_entry entry.launch`  
-     `rosrun ariac_entry ariac_entry_node`
+     `rosrun ariac_entry ariac_entry_node`  
 To run the project without the launch file, first start the simulator by running  
     `roslaunch ecse_373_ariac ecse_373_ariac.launch`  
 or to run it in the background (perfered) use  
     `roslaunch ecse_373_ariac ecse_373_ariac.launch &`  
 Once the simulator is open, be sure to click the play button at the bottom and then wait a few seconds (typically until the simtime reaches 5 seconds) before continuing.  
-Next start the ik_service node with
-     `rosrun ik_service ik_service_node`
+Next start the ik_service node with  
+     `rosrun ik_service ik_service_node`  
 To launch the node of this project run  
     `rosrun ariac_entry ariac_entry_node`  
 When it is desired to end the simulation run  
     `killall gzserver gzclient roslaunch`  
+
+#### Future Improvments:
+The node supplied here provides a sucessful framwork which can be further built upon to sucessfully complete the competetion. Specifically, the node is able move the arm to a desired location and is able to succesful pick up the desired part. Futuer improvments are listed below in the order I would impliment them.  
+1. Determine correct trey to place part
+2. Move arm to trey
+3. Determine desired pose of the part in the trey
+4. Transform this pose into the frame of the robot
+5. Place part onto trey
+6. Add functionality to move the linear acuator near the correct part bin once it has been determined
+7. Add loops to run code over each part of each order of each shipment
+8. Switch to controlling arm through the action server so more information about its state can be determined
