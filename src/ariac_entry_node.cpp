@@ -92,6 +92,7 @@ void cameraCallback_sen2(const osrf_gear::LogicalCameraImage::ConstPtr& msg)
   cameras[9] = *msg;
 }
 
+// Returns the type of the part requested
 std::string getOrderType(){
   // Get part of the first order
   std::string type;
@@ -100,6 +101,7 @@ std::string getOrderType(){
   return type;
 }
 
+// Returns the bin where the desired part is located
 std::string getPartLocation(std::string type, ros::ServiceClient materialLocations) {
   osrf_gear::GetMaterialLocations materialLocationsType;
   // Get the location of the first part
@@ -118,6 +120,7 @@ std::string getPartLocation(std::string type, ros::ServiceClient materialLocatio
 
 }
 
+// Returns the pose of the desired part in the frame of the camera at the desired bin
 geometry_msgs::Pose getCameraPose(std::string type, std::string unit) {
   // Getting pose of part
   // Check correct camera
@@ -170,6 +173,7 @@ geometry_msgs::Pose getCameraPose(std::string type, std::string unit) {
 // Define number of joints
 #define NUM_JOINTS 6
 
+// Returns the desired solution to inverse kinematics for the given pose and joint constraints
 ik_service::JointSolutions inverseKinematicsSolver(geometry_msgs::PoseStamped goal_pose, ros::ServiceClient ik_client){
   // Get the inverse kinematics solutions for the goal_pose
   ik_service::PoseIK ik_pose;
@@ -588,7 +592,7 @@ int main(int argc, char **argv)
       moveArmBack(count, original_angles, follow_joint_trajectory);
       count++;
       
-
+      // Move arm base to random spot
       moveBase(count, 2.0, follow_joint_trajectory);
       count++;
 
