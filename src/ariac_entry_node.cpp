@@ -7,6 +7,7 @@
 #include "osrf_gear/Order.h"
 #include "osrf_gear/GetMaterialLocations.h"
 #include "osrf_gear/LogicalCameraImage.h"
+#include "osrf_gear/VacuumGripperControl.h"
 
 // Transformation header files
 #include "tf2_ros/transform_listener.h"
@@ -282,9 +283,75 @@ void moveArm(int count, ik_service::JointSolutions desired_angles, ros::Publishe
 }
 
 
-/**
- * This tutorial demonstrates simple sending of messages over the ROS system.
- */
+// Moves arm back to orginal position
+void moveArmBack(int count, sensor_msgs::JointState orginal_joints, ros::Publisher follow_joint_trajectory) {
+  // Declare a variable for generating and publishing a trajectory.
+  trajectory_msgs::JointTrajectory joint_trajectory;
+
+  // Fill out the joint trajectory header.
+  // Each joint trajectory should have an non-monotonically increasing sequence number.
+  joint_trajectory.header.seq = count;
+  joint_trajectory.header.stamp = ros::Time::now(); // When was this message created.
+  joint_trajectory.header.frame_id = "/world"; // Frame in which this is specified
+
+  // Set the names of the joints being used. All must be present.
+  joint_trajectory.joint_names.clear();
+  joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
+  joint_trajectory.joint_names.push_back("shoulder_pan_joint");
+  joint_trajectory.joint_names.push_back("shoulder_lift_joint");
+  joint_trajectory.joint_names.push_back("elbow_joint");
+  joint_trajectory.joint_names.push_back("wrist_1_joint");
+  joint_trajectory.joint_names.push_back("wrist_2_joint");
+  joint_trajectory.joint_names.push_back("wrist_3_joint");
+
+  // Set a start and end point.
+  joint_trajectory.points.resize(2);
+  // Set the start point to the current position of the joints from joint_states.
+  joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
+  for (int indy = 0; indy < joint_trajectory.joint_names.size(); indy++) {
+    for (int indz = 0; indz < joint_states.name.size(); indz++) {
+      if (joint_trajectory.joint_names[indy] == joint_states.name[indz]) {
+        joint_trajectory.points[0].positions[indy] = joint_states.position[indz];
+        break;
+      }
+    }
+  }
+
+  // When to start (immediately upon receipt).
+  joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
+
+  // Set the end point for the movement
+  joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
+  for (int indy = 0; indy < joint_trajectory.joint_names.size(); indy++) {
+    for (int indz = 0; indz < orginal_joints.name.size(); indz++) {
+      if (joint_trajectory.joint_names[indy] == orginal_joints.name[indz]) {
+        joint_trajectory.points[1].positions[indy] = orginal_joints.position[indz];
+        break;
+      }
+    }
+  }
+
+  // How long to take for the movement.
+  joint_trajectory.points[1].time_from_start = ros::Duration(5.0);
+
+  // Publish message to move arm
+  follow_joint_trajectory.publish(joint_trajectory);
+
+  // Sleep while arm moves
+  ros::Duration(joint_trajectory.points.back().time_from_start).sleep();
+  ros::Duration(1.0).sleep();
+}
+
+// Changes the gripper to on (true) or off (false)
+void turnGripperOnOff(bool on, ros::ServiceClient gripper) {
+  osrf_gear::VacuumGripperControl vac;
+  vac.request.enable = on;
+  if (gripper.call(vac)) {
+    ROS_INFO("Gripper Status sucessfully changed");
+  }
+}
+
+
 int main(int argc, char **argv)
 {
   /**
@@ -382,6 +449,9 @@ int main(int argc, char **argv)
   // Create the service client.
   ros::ServiceClient materialLocations = n.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
 
+  // Create the service client for gripper.
+  ros::ServiceClient gripper = n.serviceClient<osrf_gear::VacuumGripperControl>("/ariac/arm1/gripper/control");
+
   // Publisher for follow_joint_trajectory
  ros::Publisher follow_joint_trajectory = n.advertise<trajectory_msgs::JointTrajectory>("ariac/arm1/arm/command", 1000);
 
@@ -443,6 +513,9 @@ int main(int argc, char **argv)
       moveArm(count, desired_angles_above, follow_joint_trajectory);
       count++;
 
+      // Turn gripper on
+      turnGripperOnOff(true, gripper);
+
       // Get the inverse kinematics solutions for the goal_pose
       ik_service::JointSolutions desired_angles_goal = inverseKinematicsSolver(goal_pose, ik_client); 
       // Move arm down to part
@@ -453,20 +526,9 @@ int main(int argc, char **argv)
       moveArm(count, desired_angles_above, follow_joint_trajectory);
       count++;
 
-
-      // GOOD TO HERE NEED TO NEXT MAKE ARM RETURN TO STARTING POSE
-
       // Move arm to original position
-      ik_service::JointSolutions test;
-      for (int i =0; i < NUM_JOINTS; i++) {
-        test.joint_angles[i] = original_angles.position[i+1];
-      }
-
-
-      moveArm(count, test, follow_joint_trajectory);
+      moveArmBack(count, original_angles, follow_joint_trajectory);
       count++;
-
-
       
 
     }
