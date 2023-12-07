@@ -352,6 +352,64 @@ void turnGripperOnOff(bool on, ros::ServiceClient gripper) {
 }
 
 
+// Moves base to desired location
+void moveBase(int count, float location, ros::Publisher follow_joint_trajectory) {
+  // Declare a variable for generating and publishing a trajectory.
+  trajectory_msgs::JointTrajectory joint_trajectory;
+
+  // Fill out the joint trajectory header.
+  // Each joint trajectory should have an non-monotonically increasing sequence number.
+  joint_trajectory.header.seq = count;
+  joint_trajectory.header.stamp = ros::Time::now(); // When was this message created.
+  joint_trajectory.header.frame_id = "/world"; // Frame in which this is specified
+
+  // Set the names of the joints being used. All must be present.
+  joint_trajectory.joint_names.clear();
+  joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
+  joint_trajectory.joint_names.push_back("shoulder_pan_joint");
+  joint_trajectory.joint_names.push_back("shoulder_lift_joint");
+  joint_trajectory.joint_names.push_back("elbow_joint");
+  joint_trajectory.joint_names.push_back("wrist_1_joint");
+  joint_trajectory.joint_names.push_back("wrist_2_joint");
+  joint_trajectory.joint_names.push_back("wrist_3_joint");
+
+  // Set a start and end point.
+  joint_trajectory.points.resize(2);
+  // Set the start point to the current position of the joints from joint_states.
+  joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
+  for (int indy = 0; indy < joint_trajectory.joint_names.size(); indy++) {
+    for (int indz = 0; indz < joint_states.name.size(); indz++) {
+      if (joint_trajectory.joint_names[indy] == joint_states.name[indz]) {
+        joint_trajectory.points[0].positions[indy] = joint_states.position[indz];
+        break;
+      }
+    }
+  }
+
+  // When to start (immediately upon receipt).
+  joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
+
+  // Set the end point for the movement
+  joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
+
+  // Second pose is same as first excpet change linear arm acturator
+  joint_trajectory.points[1] = joint_trajectory.points[0];
+  joint_trajectory.points[1].positions[0] = location;
+  
+  // How long to take for the movement.
+  joint_trajectory.points[1].time_from_start = ros::Duration(5.0);
+
+  // Publish message to move arm
+  follow_joint_trajectory.publish(joint_trajectory);
+
+  ROS_INFO("Moving arm base to [%f] m", location);
+
+  // Sleep while arm moves
+  ros::Duration(joint_trajectory.points.back().time_from_start).sleep();
+  ros::Duration(1.0).sleep();
+}
+
+
 int main(int argc, char **argv)
 {
   /**
@@ -530,6 +588,9 @@ int main(int argc, char **argv)
       moveArmBack(count, original_angles, follow_joint_trajectory);
       count++;
       
+
+      moveBase(count, 2.0, follow_joint_trajectory);
+      count++;
 
     }
 
