@@ -5,7 +5,8 @@ The project begins the competition and if began successfully it will display the
 By Zach Silberstein
 
 #### Initial setup
-To run this project the cwru_ariac_2019 package must be installed and can be found [here](https://github.com/cwru-eecs-373/cwru_ariac_2019).
+To run this project the cwru_ariac_2019 package must be installed and can be found [here](https://github.com/cwru-eecs-373/cwru_ariac_2019).  
+Access to the ik_service_node is also required. Information about that node can be found [here](https://github.com/zach-silberstein/ecse473_f23_zms29_ik_service).  
 
 Additional information about the competition and useful documentation can be found [here](https://bitbucket.org/osrf/ariac/wiki/2019/Home).
 
